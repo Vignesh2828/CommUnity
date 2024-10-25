@@ -1,4 +1,3 @@
-import React, { useEffect, useState } from "react";
 import {
   View,
   StyleSheet,
@@ -7,27 +6,31 @@ import {
   RefreshControl,
   Alert,
 } from "react-native";
+import React, { useEffect, useState } from "react";
+import { useLocalSearchParams } from "expo-router";
 import { useDispatch, useSelector } from "react-redux";
-import { RootState, AppDispatch } from "@/store";
-import { GET_SERVICES } from "@/store/apps/services";
-import CategoryCarousel from "@/components/CategoryCarousel";
+import { AppDispatch, RootState } from "@/store";
+import { GET_SERVICES, GET_SERVICES_BY_CATEGORY } from "@/store/apps/services";
 import ServiceList from "@/components/ServiceList";
-import { REVERSE_GEO_TRACK } from "@/store/apps/reverseGeo";
 import * as Location from "expo-location";
-import SearchService from "@/components/SearchService";
-import Fuse from "fuse.js"
+import { REVERSE_GEO_TRACK } from "@/store/apps/reverseGeo";
+import SearchService from "@/components/SearchService"; // Import SearchService
+import Fuse from "fuse.js"; // Import Fuse.js
 
-const Home: React.FC = () => {
+const CategoryShow = () => {
+  const { category } = useLocalSearchParams();
   const dispatch = useDispatch<AppDispatch>();
-  const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [location, setLocation] = useState<{ latitude: string; longitude: string }>({ latitude: "", longitude: "" });
-  const [city, setCity] = useState<string>("");
-  const [searchTerm, setSearchTerm] = useState<string>(""); // Search term state
 
-  // Access the services data, loading, and error state
-  const servicesData = useSelector((state: RootState) => state.servicesList.serviceList.data);
-  const loading = useSelector((state: RootState) => state.servicesList.serviceList.loading);
-  const error = useSelector((state: RootState) => state.servicesList.serviceList.error);
+  const [refreshing, setRefreshing] = useState(false);
+  const [location, setLocation] = useState({ latitude: "", longitude: "" });
+  const [city, setCity] = useState("");
+  const [searchTerm, setSearchTerm] = useState(""); // State for search term
+
+  useEffect(() => {
+    if (category) {
+      dispatch(GET_SERVICES_BY_CATEGORY(String(category)));
+    }
+  }, [category]);
 
   // Function to get user's location
   const getUserLocation = async () => {
@@ -49,25 +52,29 @@ const Home: React.FC = () => {
   };
 
   useEffect(() => {
-    getUserLocation(); // Fetch location when the component mounts
+    getUserLocation();
   }, []);
 
-  // Fetch services on component mount
-  useEffect(() => {
-    fetchServices();
-  }, []);
+  const categoriesServices = useSelector(
+    (state: RootState) => state.servicesList.serviceListCategory.data
+  );
+  const loading = useSelector(
+    (state: RootState) => state.servicesList.serviceListCategory.loading
+  );
+  const error = useSelector(
+    (state: RootState) => state.servicesList.serviceListCategory.error
+  );
 
+  // Function to fetch services
   const fetchServices = () => {
     setRefreshing(true);
-    dispatch(GET_SERVICES()).finally(() => {
-      setRefreshing(false);
-    });
+    dispatch(GET_SERVICES()).then(() => setRefreshing(false));
   };
 
   const reverse = async (lat: number, long: number) => {
     try {
       const response = await dispatch(
-        REVERSE_GEO_TRACK({ lat, lon: long })
+        REVERSE_GEO_TRACK({ lat: lat, lon: long })
       );
 
       if (
@@ -91,20 +98,19 @@ const Home: React.FC = () => {
     reverse(Number(location.latitude), Number(location.longitude));
   }, [location]);
 
-  const fuse = new Fuse(servicesData, {
-    keys: ["category", "name", "description"],
+  const fuse = new Fuse(categoriesServices, {
+    keys: ["category", "name", "description"], 
     includeScore: true,
     threshold: 0.3,
-  })
+  });
 
- const filteredServices = searchTerm ? fuse.search(searchTerm).map(result => result.item) : servicesData;
-
-  console.log("loading", loading);
+  const filteredServices = searchTerm
+    ? fuse.search(searchTerm).map((result) => result.item)
+    : categoriesServices;
 
   return (
     <View style={styles.container}>
       <SearchService onSearch={setSearchTerm} />
-      <CategoryCarousel />
 
       <ScrollView
         refreshControl={
@@ -112,24 +118,28 @@ const Home: React.FC = () => {
         }
       >
         {loading ? (
-          <Text style={styles.loadingText}>Loading please wait </Text>
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Loading services...</Text>
+          </View>
         ) : error ? (
           <Text style={styles.errorText}>Error: {error}</Text>
-        ) : filteredServices.length > 0 ? (
+        ) : filteredServices.length === 0 ? (
+          <Text style={styles.noServicesText}>
+            No services available in this category.
+          </Text>
+        ) : (
           <ServiceList
             services={filteredServices}
             userCity={city}
             loading={loading}
           />
-        ) : (
-          <Text style={styles.errorText}>No services available</Text>
         )}
       </ScrollView>
     </View>
   );
 };
 
-export default Home;
+export default CategoryShow;
 
 const styles = StyleSheet.create({
   container: {
@@ -144,6 +154,19 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 18,
     textAlign: "center",
+    color: "red",
     marginTop: 20,
+  },
+  noServicesText: {
+    fontSize: 18,
+    textAlign: "center",
+    color: "#555",
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });

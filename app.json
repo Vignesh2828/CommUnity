@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "nsf",
-    "slug": "nsf",
+    "name": "nhsf",
+    "slug": "nhsf",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -19,7 +19,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package" : "com.nhsf.firebaseApp"
     },
     "web": {
       "bundler": "metro",
@@ -27,7 +28,10 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-build-properties",
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth"
     ],
     "experiments": {
       "typedRoutes": true
